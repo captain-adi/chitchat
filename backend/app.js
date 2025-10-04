@@ -27,4 +27,15 @@ import userRoutes from "./src/routes/user_routes.js";
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/user", userRoutes);
 
+//Error handler
+
+app.use((err, req, res) => {
+  const { statusCode = 500, message = "Internal Server Error" } = err;
+  res.status(statusCode).json({
+    status: "error",
+    statusCode,
+    message,
+  });
+});
+
 export default app;

@@ -1,7 +1,115 @@
+import { User } from "../models/user_model.js";
+import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/AsyncHandler.js";
+import bcrypt from "bcrypt";
+import otpGenerator from "../utils/otpGenerator.js";
+import {} from "twilio";
+import { sendOtpToPhoneNumber, verifyOTP } from "../services/twilioService.js";
+import { sendOTPtoMail } from "../services/emailService.js";
+import ApiError from "../utils/ApiError.js";
+import generateToken from "../utils/generateToken.js";
+
+const sendOtp = asyncHandler(async (req, res, next) => {
+  const { phoneNumber, email, phoneSuffix } = req.body;
+  const OTP = otpGenerator();
+  const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+  let user;
+  try {
+    if (email) {
+      user = await User.findOne({ email });
+      if (!user) {
+        user = new User({ email });
+      }
+      user.emailOtp = OTP;
+      user.otpExpiry = otpExpiry;
+      await user.save();
+      sendOTPtoMail(OTP, email);
+      return res
+        .status(200)
+        .json(new ApiResponse(200, "OTP send to Your mail", email));
+    }
+    if (!phoneNumber && !phoneSuffix) {
+      throw new ApiError(" phone number and phone suffix is required ");
+    }
+    const fullPhoneNumber = `+${phoneSuffix}${phoneNumber}`;
+
+    user = await User.findOne({ phoneNumber });
+    if (!user) {
+      user = new User({ phoneNumber, phoneSuffix });
+    }
+    await sendOtpToPhoneNumber(fullPhoneNumber);
+    await user.save();
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "check message for OTP", user));
+  } catch (error) {
+    next(error);
+  }
+});
+
+const verifyOtp = asyncHandler(async (req, res, next) => {
+  const { phoneNumber, email, otp, phoneSuffix } = req.body;
+  if (email) {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json(new ApiResponse(400, "User not found", null));
+    }
+    if (user.emailOtp !== otp || user.otpExpiry < new Date()) {
+      return res
+        .status(400)
+        .json(new ApiResponse(400, "Invalid or expired OTP", null));
+    }
+    user.emailOtp = null;
+    user.otpExpiry = null;
+    user.isVerified = true;
+    await user.save();
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "OTP verified successfully", user));
+  }
+  if (!phoneNumber && !phoneSuffix) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, "Phone Number is required", null));
+  }
+  const fullPhoneNumber = `+${phoneSuffix}${phoneNumber}`;
+  const user = await User.findOne({ phoneNumber });
+  if (!user) {
+    return res.status(401).json(new ApiResponse(401, "User not found", null));
+  }
+  const isVerifired = await verifyOTP(fullPhoneNumber, otp);
+  if (!isVerifired) {
+    return res.status(401).json(new ApiResponse(200, "Invalid OTP", null));
+  }
+  user.isVerified = true;
+  await user.save();
+  const token = generateToken(user._id);
+  const options = {
+    httpOnly: true,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    secure: process.env.NODE_ENV === "production",
+  };
+  res.cookie("token", token, options);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "OTP verified successfully", user));
+});
 
 const signup = asyncHandler(async (req, res, next) => {
-  res.send("User signed up successfully");
+  const { username, email, password } = req.body;
+  const user = await User.findOne({ email });
+  if (user) {
+    res.status(400).json(new ApiResponse(400, "User already exists", null));
+    return;
+  }
+  console.log(password);
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const newUser = await User.create({
+    username,
+    email,
+    password: hashedPassword,
+  });
+  res.status(200).json(new ApiResponse(200, "signup successful", newUser));
 });
 const login = asyncHandler(async (req, res, next) => {
   res.send("User logged in successfully");
@@ -13,4 +121,4 @@ const isLoggedIn = asyncHandler(async (req, res, next) => {
   res.send("User is logged in");
 });
 
-export { signup, login, logout, isLoggedIn };
+export { signup, login, logout, isLoggedIn, sendOtp, verifyOtp };
