@@ -1,16 +1,17 @@
 import twilio from "twilio";
 import ApiError from "../utils/ApiError.js";
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+const client = twilio(accountSid, authToken);
 const sendOtpToPhoneNumber = async (to) => {
   try {
     console.log("sending otp to this number : ", to);
     if (!to) {
       throw new ApiError("Phone number is required", 400);
     }
-    const sms = await client.verify._v2
+    const sms = await client.verify.v2
       .services(process.env.TWILIO_SERVICES_SID)
       .verifications.create({
         to: to,

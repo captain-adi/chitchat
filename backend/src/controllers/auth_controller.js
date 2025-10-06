@@ -26,14 +26,14 @@ const sendOtp = asyncHandler(async (req, res, next) => {
       sendOTPtoMail(OTP, email);
       return res
         .status(200)
-        .json(new ApiResponse(200, "OTP send to Your mail", email));
+        .json(new ApiResponse(200, "Check your email for OTP", email));
     }
     if (!phoneNumber && !phoneSuffix) {
       throw new ApiError(" phone number and phone suffix is required ");
     }
     const fullPhoneNumber = `+${phoneSuffix}${phoneNumber}`;
 
-    user = await User.findOne({ phoneNumber });
+    user = await User.findOne({ phoneNumber, phoneSuffix });
     if (!user) {
       user = new User({ phoneNumber, phoneSuffix });
     }
@@ -41,7 +41,9 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     await user.save();
     return res
       .status(200)
-      .json(new ApiResponse(200, "check message for OTP", user));
+      .json(
+        new ApiResponse(200, "Check your message for OTP", fullPhoneNumber)
+      );
   } catch (error) {
     next(error);
   }
@@ -73,13 +75,13 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
       .json(new ApiResponse(400, "Phone Number is required", null));
   }
   const fullPhoneNumber = `+${phoneSuffix}${phoneNumber}`;
-  const user = await User.findOne({ phoneNumber });
+  const user = await User.findOne({ phoneNumber, phoneSuffix });
   if (!user) {
     return res.status(401).json(new ApiResponse(401, "User not found", null));
   }
   const isVerifired = await verifyOTP(fullPhoneNumber, otp);
   if (!isVerifired) {
-    return res.status(401).json(new ApiResponse(200, "Invalid OTP", null));
+    return res.status(401).json(new ApiResponse(401, "Invalid OTP", null));
   }
   user.isVerified = true;
   await user.save();
