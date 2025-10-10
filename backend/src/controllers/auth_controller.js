@@ -51,11 +51,12 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
 const verifyOtp = asyncHandler(async (req, res, next) => {
   const { phoneNumber, email, otp, phoneSuffix } = req.body;
+  const query = email ? { email } : { phoneNumber, phoneSuffix };
+  const user = await User.findOne(query);
+  if (!user) {
+    return res.status(400).json(new ApiResponse(400, "User not found", null));
+  }
   if (email) {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json(new ApiResponse(400, "User not found", null));
-    }
     if (user.emailOtp !== otp || user.otpExpiry < new Date()) {
       return res
         .status(400)
@@ -64,37 +65,33 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     user.emailOtp = null;
     user.otpExpiry = null;
     user.isVerified = true;
-    await user.save();
-    return res
-      .status(200)
-      .json(new ApiResponse(200, "OTP verified successfully", user));
   }
-  if (!phoneNumber && !phoneSuffix) {
-    return res
-      .status(400)
-      .json(new ApiResponse(400, "Phone Number is required", null));
+  if (phoneNumber) {
+    const fullPhoneNumber = `+${phoneSuffix}${phoneNumber}`;
+    const isOTPVerifired = await verifyOTP(fullPhoneNumber, otp);
+    if (!isOTPVerifired) {
+      return res.status(401).json(new ApiResponse(401, "Invalid OTP", null));
+    }
+    user.isVerified = true;
   }
-  const fullPhoneNumber = `+${phoneSuffix}${phoneNumber}`;
-  const user = await User.findOne({ phoneNumber, phoneSuffix });
-  if (!user) {
-    return res.status(401).json(new ApiResponse(401, "User not found", null));
-  }
-  const isVerifired = await verifyOTP(fullPhoneNumber, otp);
-  if (!isVerifired) {
-    return res.status(401).json(new ApiResponse(401, "Invalid OTP", null));
-  }
-  user.isVerified = true;
   await user.save();
   const token = generateToken(user._id);
   const options = {
     httpOnly: true,
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     secure: process.env.NODE_ENV === "production",
+    samesite: false,
   };
   res.cookie("token", token, options);
+  const safeUser = {
+    id: user._id,
+    email: user.email,
+    phoneNumber: user.phoneNumber,
+    isVerified: user.isVerified,
+  };
   return res
     .status(200)
-    .json(new ApiResponse(200, "OTP verified successfully", user));
+    .json(new ApiResponse(200, "OTP verified successfully", safeUser));
 });
 
 const signup = asyncHandler(async (req, res, next) => {
@@ -113,9 +110,7 @@ const signup = asyncHandler(async (req, res, next) => {
   });
   res.status(200).json(new ApiResponse(200, "signup successful", newUser));
 });
-const login = asyncHandler(async (req, res, next) => {
-  res.send("User logged in successfully");
-});
+
 const logout = asyncHandler(async (req, res, next) => {
   res.send("User logged out successfully");
 });
@@ -123,4 +118,4 @@ const isLoggedIn = asyncHandler(async (req, res, next) => {
   res.send("User is logged in");
 });
 
-export { signup, login, logout, isLoggedIn, sendOtp, verifyOtp };
+export { signup, logout, isLoggedIn, sendOtp, verifyOtp };

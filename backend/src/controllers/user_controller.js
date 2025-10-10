@@ -1,4 +1,5 @@
 import { User } from "../models/user_model.js";
+import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import uploadFileOnCloudinary from "../utils/uploadFileOnCloudinary.js";
 
@@ -12,7 +13,7 @@ const deleteUser = (req, res) => {
 };
 const updateProfile = asyncHandler(async (req, res) => {
   const { username, about } = req.body;
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   const user = await User.findById(userId);
   if (!user) {
@@ -25,7 +26,9 @@ const updateProfile = asyncHandler(async (req, res) => {
   const avatarUrl = await uploadFileOnCloudinary(req.file.path);
   user.avatar = avatarUrl || user.avatar;
   await user.save();
-  res.status(200).json({ message: "Profile updated successfully", user });
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Profile updated successfully", user));
   console.log("this is the avatar url : ", avatarUrl);
 });
 export { getUser, deleteUser, updateProfile };
