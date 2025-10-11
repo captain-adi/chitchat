@@ -115,7 +115,17 @@ const logout = asyncHandler(async (req, res, next) => {
   res.send("User logged out successfully");
 });
 const isLoggedIn = asyncHandler(async (req, res, next) => {
-  res.send("User is logged in");
+  const userId = req.user.userId;
+  const token = generateToken(userId);
+  res
+    .status(200)
+    .cookie("token", token, {
+      httpOnly: true,
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      secure: process.env.NODE_ENV === "production",
+      samesite: false,
+    })
+    .json(new ApiResponse(200, "User is logged in", { userId }));
 });
 
 export { signup, logout, isLoggedIn, sendOtp, verifyOtp };
