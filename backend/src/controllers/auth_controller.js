@@ -121,11 +121,11 @@ const logout = asyncHandler(async (req, res, next) => {
 });
 const isLoggedIn = asyncHandler(async (req, res, next) => {
   const userId = req.user.userId;
-  const token = generateToken(userId);
-  res
-    .status(200)
-    .cookie("token", token, options)
-    .json(new ApiResponse(200, "User is logged in", { userId }));
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json(new ApiError("User not found", 404));
+  }
+  res.status(200).json(new ApiResponse(200, "User is logged in", user));
 });
 
 export { signup, logout, isLoggedIn, sendOtp, verifyOtp };
