@@ -9,6 +9,13 @@ import { sendOTPtoMail } from "../services/emailService.js";
 import ApiError from "../utils/ApiError.js";
 import generateToken from "../utils/generateToken.js";
 
+const options = {
+  httpOnly: true,
+  expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  secure: process.env.NODE_ENV === "production",
+  samesite: false,
+};
+
 const sendOtp = asyncHandler(async (req, res, next) => {
   const { phoneNumber, email, phoneSuffix } = req.body;
   const OTP = otpGenerator();
@@ -76,12 +83,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
   }
   await user.save();
   const token = generateToken(user._id);
-  const options = {
-    httpOnly: true,
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    secure: process.env.NODE_ENV === "production",
-    samesite: false,
-  };
   res.cookie("token", token, options);
   const safeUser = {
     id: user._id,
@@ -112,19 +113,18 @@ const signup = asyncHandler(async (req, res, next) => {
 });
 
 const logout = asyncHandler(async (req, res, next) => {
-  res.send("User logged out successfully");
+  const userId = req.user.userId;
+  res
+    .status(200)
+    .clearCookie("token", options)
+    .json(new ApiResponse(200, "Logout successful", { userId }));
 });
 const isLoggedIn = asyncHandler(async (req, res, next) => {
   const userId = req.user.userId;
   const token = generateToken(userId);
   res
     .status(200)
-    .cookie("token", token, {
-      httpOnly: true,
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      secure: process.env.NODE_ENV === "production",
-      samesite: false,
-    })
+    .cookie("token", token, options)
     .json(new ApiResponse(200, "User is logged in", { userId }));
 });
 
