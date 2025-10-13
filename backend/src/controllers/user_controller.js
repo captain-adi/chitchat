@@ -1,6 +1,6 @@
 import { User } from "../models/user_model.js";
-import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/AsyncHandler.js";
+import responseHandler from "../utils/responseHandler.js";
 import uploadFileOnCloudinary from "../utils/uploadFileOnCloudinary.js";
 
 const getUser = (req, res) => {
@@ -26,9 +26,14 @@ const updateProfile = asyncHandler(async (req, res) => {
   const avatarUrl = await uploadFileOnCloudinary(req.file.path);
   user.avatar = avatarUrl || user.avatar;
   await user.save();
-  res
-    .status(200)
-    .json(new ApiResponse(200, "Profile updated successfully", user));
+  responseHandler(res, 200, "Profile updated successfully", user);
   console.log("this is the avatar url : ", avatarUrl);
 });
-export { getUser, deleteUser, updateProfile };
+const getAllUser = asyncHandler(async (req, res, next) => {
+  const loggedInUser = req.user.userId;
+  const users = await User.find({ _id: { $ne: loggedInUser } }).select(
+    "-emailOtp -otpExpiry -password"
+  );
+  return responseHandler(res, 200, "All users fetched successfully", users);
+});
+export { getUser, deleteUser, updateProfile, getAllUser };

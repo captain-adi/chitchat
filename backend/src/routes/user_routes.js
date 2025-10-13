@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   deleteUser,
+  getAllUser,
   getUser,
   updateProfile,
 } from "../controllers/user_controller.js";
@@ -14,4 +15,5 @@ router
   .route("/me/update-profile")
   .put(authMiddleware, upload.single("avatar"), updateProfile);
 
+router.route("/all").get(authMiddleware, getAllUser);
 export default router;
