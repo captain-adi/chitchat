@@ -29,7 +29,7 @@ app.use("/api/v1/user", userRoutes);
 
 //Error handler
 
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   const { statusCode = 500, message = "Internal Server Error" } = err;
   res.status(statusCode).json({
     status: "error",
