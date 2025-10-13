@@ -8,6 +8,7 @@ import { sendOtpToPhoneNumber, verifyOTP } from "../services/twilioService.js";
 import { sendOTPtoMail } from "../services/emailService.js";
 import ApiError from "../utils/ApiError.js";
 import generateToken from "../utils/generateToken.js";
+import responseHandler from "../utils/responseHandler.js";
 
 const options = {
   httpOnly: true,
@@ -90,16 +91,14 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     phoneNumber: user.phoneNumber,
     isVerified: user.isVerified,
   };
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "OTP verified successfully", safeUser));
+  return responseHandler(res, 200, "OTP verified successfully", safeUser);
 });
 
 const signup = asyncHandler(async (req, res, next) => {
   const { username, email, password } = req.body;
   const user = await User.findOne({ email });
   if (user) {
-    res.status(400).json(new ApiResponse(400, "User already exists", null));
+    responseHandler(res, 400, "User already exists", null);
     return;
   }
   console.log(password);
@@ -109,7 +108,7 @@ const signup = asyncHandler(async (req, res, next) => {
     email,
     password: hashedPassword,
   });
-  res.status(200).json(new ApiResponse(200, "signup successful", newUser));
+  responseHandler(res, 200, "signup successful", newUser);
 });
 
 const logout = asyncHandler(async (req, res, next) => {
@@ -123,9 +122,9 @@ const isLoggedIn = asyncHandler(async (req, res, next) => {
   const userId = req.user.userId;
   const user = await User.findById(userId);
   if (!user) {
-    return res.status(404).json(new ApiError("User not found", 404));
+    return responseHandler(res, 404, "User not found", null);
   }
-  res.status(200).json(new ApiResponse(200, "User is logged in", user));
+  responseHandler(res, 200, "User is logged in", user);
 });
 
 export { signup, logout, isLoggedIn, sendOtp, verifyOtp };
